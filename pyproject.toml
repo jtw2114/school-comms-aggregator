@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "school-comms-aggregator"
+version = "1.0.0"
+description = "Desktop app that consolidates school communications from Gmail and Brightwheel with AI-powered summaries"
+requires-python = ">=3.12"
+dependencies = [
+    "PySide6>=6.6",
+    "SQLAlchemy>=2.0",
+    "google-api-python-client>=2.100",
+    "google-auth-httplib2>=0.2",
+    "google-auth-oauthlib>=1.1",
+    "playwright>=1.40",
+    "requests>=2.31",
+    "anthropic>=0.39",
+    "keyring>=25.0",
+]
+
+[project.scripts]
+school-comms = "src.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
