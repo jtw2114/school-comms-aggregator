@@ -63,6 +63,12 @@ class SummaryService:
         finally:
             session.close()
 
+        # Sync checklist items from the newly generated summaries
+        try:
+            self._sync_checklist_from_summaries(days)
+        except Exception:
+            logger.warning("Failed to sync checklist from summaries", exc_info=True)
+
     def _generate_day_summary(self, session, target_date: date, force: bool = False):
         """Generate or update summary for a single day."""
         date_str = target_date.isoformat()
@@ -226,3 +232,30 @@ class SummaryService:
                         aggregated[category].append(item)
 
         return aggregated
+
+    def get_rolling_raw_summaries(self, days: int = SUMMARY_ROLLING_DAYS) -> str:
+        """Concatenate raw_summary text across the rolling window with date headers.
+
+        Returns a single string suitable for display in the overview card.
+        """
+        summaries = self.get_rolling_summaries(days)
+        parts = []
+        for date_str in sorted(summaries.keys(), reverse=True):
+            s = summaries[date_str]
+            if s.raw_summary:
+                parts.append(f"{date_str}: {s.raw_summary}")
+        return "\n\n".join(parts)
+
+    def _sync_checklist_from_summaries(self, days: int = SUMMARY_ROLLING_DAYS):
+        """Sync aggregated action_items and key_dates to the checklist table.
+
+        Called after generate_rolling_summaries commits.
+        """
+        from src.services.checklist_service import ChecklistService
+
+        aggregated = self.get_aggregated_summary(days)
+        checklist_svc = ChecklistService()
+
+        for category in ("action_items", "key_dates"):
+            items = aggregated.get(category, [])
+            checklist_svc.sync_items_from_summary(category, items)

@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.ui.theme import COLORS
+
 
 class PhotoGallery(QWidget):
     """Horizontal scrollable gallery of photo thumbnails."""
@@ -25,7 +27,7 @@ class PhotoGallery(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 4, 0, 4)
 
-        self._title = QLabel("<b>Photos</b>")
+        self._title = QLabel(f"<b style='color:{COLORS['navy']};'>Photos</b>")
         self._title.setVisible(False)
         layout.addWidget(self._title)
 
@@ -57,14 +59,14 @@ class PhotoGallery(QWidget):
         for path in photo_paths:
             if not path or not os.path.exists(path):
                 # Show placeholder for remote URLs
-                thumb = QLabel(f"[Photo]")
+                thumb = QLabel("[Photo]")
                 thumb.setFixedSize(QSize(self.THUMB_SIZE, self.THUMB_SIZE))
                 thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                thumb.setStyleSheet("""
-                    background-color: #f0f0f0;
-                    border: 1px solid #ddd;
+                thumb.setStyleSheet(f"""
+                    background-color: {COLORS['surface_hover']};
+                    border: 1px solid {COLORS['border']};
                     border-radius: 4px;
-                    color: #999;
+                    color: {COLORS['text_muted']};
                 """)
                 self._gallery_layout.addWidget(thumb)
                 loaded += 1
@@ -83,7 +85,7 @@ class PhotoGallery(QWidget):
             thumb.setPixmap(scaled)
             thumb.setFixedSize(QSize(self.THUMB_SIZE, self.THUMB_SIZE))
             thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            thumb.setStyleSheet("border: 1px solid #ddd; border-radius: 4px;")
+            thumb.setStyleSheet(f"border: 1px solid {COLORS['border']}; border-radius: 4px;")
             self._gallery_layout.addWidget(thumb)
             loaded += 1
 

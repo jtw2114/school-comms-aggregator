@@ -1,10 +1,10 @@
-"""Collapsible card widget for displaying a summary category (dates, deadlines, etc.)."""
+"""Checklist card widget with persistent checkboxes for action items / key dates."""
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFrame,
     QLabel,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -12,15 +12,17 @@ from PySide6.QtWidgets import (
 from src.ui.theme import COLORS
 
 
-class SummaryCard(QFrame):
-    """A styled card with a title/icon header and a list of bullet items."""
+class ChecklistCard(QFrame):
+    """A card with checkbox items that emit toggled signals."""
+
+    item_toggled = Signal(int, bool)  # (item_id, checked)
 
     def __init__(self, title: str, icon: str = "", parent=None):
         super().__init__(parent)
         self._title_text = title
         self._icon = icon
 
-        self.setObjectName("SummaryCard")
+        self.setObjectName("ChecklistCard")
         self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
         self.setLineWidth(0)
 
@@ -52,16 +54,15 @@ class SummaryCard(QFrame):
         self._items_widget = QWidget()
         self._items_layout = QVBoxLayout(self._items_widget)
         self._items_layout.setContentsMargins(8, 4, 0, 4)
-        self._items_layout.setSpacing(2)
+        self._items_layout.setSpacing(4)
         self._content_layout.addWidget(self._items_widget)
 
         # Empty state
         self._empty_label = QLabel(f"<i style='color:{COLORS['text_muted']};'>No items</i>")
-        self._empty_label.setVisible(True)
         self._items_layout.addWidget(self._empty_label)
 
-    def set_items(self, items: list[str]):
-        """Replace the displayed items."""
+    def set_checklist_items(self, items: list[tuple[int, str, bool]]):
+        """Set checklist items. Each item is (id, text, is_checked)."""
         # Clear existing
         while self._items_layout.count():
             child = self._items_layout.takeAt(0)
@@ -73,11 +74,26 @@ class SummaryCard(QFrame):
             self._items_layout.addWidget(self._empty_label)
             return
 
-        for item_text in items:
-            bullet = QLabel(f"  \u2022  {item_text}")
-            bullet.setWordWrap(True)
-            self._items_layout.addWidget(bullet)
+        for item_id, text, is_checked in items:
+            cb = QCheckBox(text)
+            cb.setChecked(is_checked)
+            if is_checked:
+                cb.setStyleSheet(
+                    f"color: {COLORS['text_muted']}; text-decoration: line-through;"
+                )
+            else:
+                cb.setStyleSheet(f"color: {COLORS['text_primary']};")
 
-    def clear(self):
-        """Clear all items."""
-        self.set_items([])
+            # Capture item_id in closure
+            cb.toggled.connect(lambda checked, iid=item_id, checkbox=cb: self._on_toggled(iid, checked, checkbox))
+            self._items_layout.addWidget(cb)
+
+    def _on_toggled(self, item_id: int, checked: bool, checkbox: QCheckBox):
+        """Handle checkbox toggle — update style and emit signal."""
+        if checked:
+            checkbox.setStyleSheet(
+                f"color: {COLORS['text_muted']}; text-decoration: line-through;"
+            )
+        else:
+            checkbox.setStyleSheet(f"color: {COLORS['text_primary']};")
+        self.item_toggled.emit(item_id, checked)

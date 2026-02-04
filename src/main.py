@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QApplication
 from src.config.settings import ensure_dirs
 from src.models.base import init_db
 from src.ui.main_window import MainWindow
+from src.ui.theme import get_app_stylesheet
 
 
 def main():
@@ -23,6 +24,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("School Comms Aggregator")
     app.setOrganizationName("SchoolComms")
+    app.setStyleSheet(get_app_stylesheet())
 
     window = MainWindow()
     window.show()

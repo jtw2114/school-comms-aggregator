@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from src.models.base import get_session
 from src.models.communication import CommunicationItem
+from src.ui.theme import COLORS, source_badge_html
 from src.utils.date_utils import date_label
 from src.utils.html_utils import truncate_text
 
@@ -29,11 +30,7 @@ class DaySection(QFrame):
         self._items_loaded = False
 
         self.setFrameStyle(QFrame.Shape.NoFrame)
-        self.setStyleSheet("""
-            DaySection {
-                border-bottom: 1px solid #eee;
-            }
-        """)
+        self.setStyleSheet(f"DaySection {{ border-bottom: 1px solid {COLORS['border_light']}; }}")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 2, 4, 2)
@@ -46,17 +43,6 @@ class DaySection(QFrame):
 
         self._toggle_btn = QPushButton(self._header_text())
         self._toggle_btn.setFlat(True)
-        self._toggle_btn.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                font-size: 13px;
-                padding: 4px 8px;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: #f0f0f0;
-            }
-        """)
         self._toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._toggle_btn.clicked.connect(self._toggle)
         header_layout.addWidget(self._toggle_btn, 1)
@@ -118,37 +104,39 @@ class DaySection(QFrame):
                 self._content_layout.addWidget(item_widget)
 
             if not items:
-                self._content_layout.addWidget(QLabel("<i>No items</i>"))
+                empty = QLabel(f"<i style='color:{COLORS['text_muted']};'>No items</i>")
+                self._content_layout.addWidget(empty)
         finally:
             session.close()
 
     def _make_item_widget(self, item: CommunicationItem) -> QWidget:
         widget = QFrame()
-        widget.setStyleSheet("""
-            QFrame {
-                background-color: #fafafa;
-                border: 1px solid #eee;
+        widget.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['surface']};
+                border: 1px solid {COLORS['border_light']};
                 border-radius: 4px;
                 padding: 6px;
                 margin: 2px 0;
-            }
+            }}
         """)
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(8, 4, 8, 4)
         layout.setSpacing(2)
 
         # Source badge + title
-        source_color = "#4285f4" if item.source == "gmail" else "#ff9800"
-        source_badge = f"<span style='background-color:{source_color};color:white;padding:1px 6px;border-radius:3px;font-size:10px;'>{item.source.upper()}</span>"
-
-        title_label = QLabel(f"{source_badge}  <b>{item.title}</b>")
+        badge = source_badge_html(item.source)
+        title_label = QLabel(f"{badge}  <b>{item.title}</b>")
         title_label.setWordWrap(True)
         title_label.setTextFormat(Qt.TextFormat.RichText)
         layout.addWidget(title_label)
 
         # Sender + time
         time_str = item.timestamp.strftime("%I:%M %p")
-        meta_label = QLabel(f"<span style='color:#666;font-size:11px;'>{item.sender} - {time_str}</span>")
+        meta_label = QLabel(
+            f"<span style='color:{COLORS['text_secondary']};font-size:11px;'>"
+            f"{item.sender} - {time_str}</span>"
+        )
         meta_label.setTextFormat(Qt.TextFormat.RichText)
         layout.addWidget(meta_label)
 
@@ -157,7 +145,7 @@ class DaySection(QFrame):
         if preview:
             preview_label = QLabel(preview)
             preview_label.setWordWrap(True)
-            preview_label.setStyleSheet("color: #444; font-size: 12px;")
+            preview_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 12px;")
             layout.addWidget(preview_label)
 
         return widget

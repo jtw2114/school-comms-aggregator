@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from src.ui.theme import COLORS, source_badge_html
 from src.utils.html_utils import truncate_text
 
 
@@ -33,12 +34,7 @@ class CommunicationCard(QFrame):
 
         # Top row: source badge + title
         top = QHBoxLayout()
-        source_color = "#4285f4" if source == "gmail" else "#ff9800"
-        badge = QLabel(
-            f"<span style='background-color:{source_color};color:white;"
-            f"padding:1px 6px;border-radius:3px;font-size:10px;'>"
-            f"{source.upper()}</span>"
-        )
+        badge = QLabel(source_badge_html(source))
         badge.setTextFormat(Qt.TextFormat.RichText)
         badge.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         top.addWidget(badge)
@@ -50,7 +46,10 @@ class CommunicationCard(QFrame):
         layout.addLayout(top)
 
         # Sender + timestamp
-        meta = QLabel(f"<span style='color:#666;font-size:11px;'>{sender} \u2022 {timestamp_str}</span>")
+        meta = QLabel(
+            f"<span style='color:{COLORS['text_secondary']};font-size:11px;'>"
+            f"{sender} \u2022 {timestamp_str}</span>"
+        )
         meta.setTextFormat(Qt.TextFormat.RichText)
         layout.addWidget(meta)
 
@@ -58,7 +57,7 @@ class CommunicationCard(QFrame):
         if preview:
             prev = QLabel(truncate_text(preview, 120))
             prev.setWordWrap(True)
-            prev.setStyleSheet("color: #555; font-size: 12px;")
+            prev.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 12px;")
             layout.addWidget(prev)
 
     def mousePressEvent(self, event):
@@ -70,8 +69,12 @@ class CommunicationCard(QFrame):
         self._apply_style(selected)
 
     def _apply_style(self, selected: bool):
-        bg = "#e3f2fd" if selected else "#ffffff"
-        border = "#1976d2" if selected else "#ddd"
+        if selected:
+            bg = COLORS["accent_light"]
+            border = COLORS["accent"]
+        else:
+            bg = COLORS["surface"]
+            border = COLORS["border_light"]
         self.setStyleSheet(f"""
             CommunicationCard {{
                 background-color: {bg};

@@ -33,6 +33,7 @@ def init_db():
     """Create all tables."""
     from src.models.communication import (  # noqa: F401
         Attachment,
+        ChecklistItem,
         CommunicationItem,
         DailySummary,
         SyncState,

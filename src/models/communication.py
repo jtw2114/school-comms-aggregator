@@ -111,3 +111,17 @@ class DailySummary(Base):
     @property
     def source_item_id_list(self) -> list[int]:
         return json.loads(self.source_item_ids) if self.source_item_ids else []
+
+
+class ChecklistItem(Base):
+    """Persistent checklist item for action items and key dates."""
+
+    __tablename__ = "checklist_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    category: Mapped[str] = mapped_column(String(50), nullable=False, index=True)  # "action_items" or "key_dates"
+    item_text: Mapped[str] = mapped_column(Text, nullable=False)
+    is_checked: Mapped[bool] = mapped_column(Boolean, default=False)
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    source_date: Mapped[str | None] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

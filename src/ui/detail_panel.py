@@ -13,7 +13,32 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from src.models.base import get_session
 from src.models.communication import Attachment, CommunicationItem
+from src.ui.theme import COLORS, source_badge_html
 from src.ui.widgets.photo_gallery import PhotoGallery
+
+
+def _themed_html_wrapper(inner_html: str) -> str:
+    """Wrap HTML content with themed CSS for the web view."""
+    return f"""<!DOCTYPE html>
+<html><head><style>
+    body {{
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        color: {COLORS['text_primary']};
+        background-color: {COLORS['surface']};
+        line-height: 1.5;
+        padding: 8px;
+        margin: 0;
+    }}
+    a {{ color: {COLORS['accent']}; }}
+    a:hover {{ color: {COLORS['accent_hover']}; }}
+    pre {{
+        font-family: Helvetica, Arial, sans-serif;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }}
+    img {{ max-width: 100%; height: auto; }}
+</style></head><body>{inner_html}</body></html>"""
 
 
 class DetailPanel(QWidget):
@@ -39,6 +64,7 @@ class DetailPanel(QWidget):
         # Separator
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"color: {COLORS['border_light']};")
         layout.addWidget(sep)
 
         # Body content (HTML via QWebEngineView)
@@ -68,12 +94,10 @@ class DetailPanel(QWidget):
                 return
 
             # Title with source badge
-            source_color = "#4285f4" if item.source == "gmail" else "#ff9800"
+            badge = source_badge_html(item.source)
             self._title_label.setText(
-                f"<span style='background-color:{source_color};color:white;"
-                f"padding:2px 8px;border-radius:3px;font-size:11px;'>"
-                f"{item.source.upper()}</span>"
-                f"<br><h3>{item.title}</h3>"
+                f"{badge}"
+                f"<br><h3 style='color:{COLORS['navy']};margin-top:6px;'>{item.title}</h3>"
             )
 
             # Meta info
@@ -85,17 +109,21 @@ class DetailPanel(QWidget):
                 meta_parts.append(f"<b>Room:</b> {item.bw_room}")
             if item.bw_action_type:
                 meta_parts.append(f"<b>Type:</b> {item.bw_action_type}")
-            self._meta_label.setText("<br>".join(meta_parts))
+            self._meta_label.setText(
+                f"<span style='color:{COLORS['text_secondary']};'>"
+                + "<br>".join(meta_parts) + "</span>"
+            )
 
             # Body content
             if item.body_html:
-                self._web_view.setHtml(item.body_html)
+                self._web_view.setHtml(_themed_html_wrapper(item.body_html))
             elif item.body_plain:
-                # Wrap plain text in basic HTML
                 escaped = item.body_plain.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                self._web_view.setHtml(f"<pre style='font-family:sans-serif;white-space:pre-wrap;'>{escaped}</pre>")
+                self._web_view.setHtml(_themed_html_wrapper(f"<pre>{escaped}</pre>"))
             else:
-                self._web_view.setHtml("<p style='color:#999;'>No content</p>")
+                self._web_view.setHtml(
+                    _themed_html_wrapper(f"<p style='color:{COLORS['text_muted']};'>No content</p>")
+                )
 
             # Attachments
             attachments = session.query(Attachment).filter_by(communication_id=item.id).all()
@@ -111,7 +139,7 @@ class DetailPanel(QWidget):
             self._photo_gallery.set_photos(photo_paths)
 
             if other_attachments:
-                att_lines = ["<b>Attachments:</b><br>"]
+                att_lines = [f"<b style='color:{COLORS['navy']};'>Attachments:</b><br>"]
                 for att in other_attachments:
                     status = " (downloaded)" if att.is_downloaded else ""
                     att_lines.append(f"\u2022 {att.filename} ({att.mime_type or 'unknown'}){status}<br>")
@@ -124,7 +152,9 @@ class DetailPanel(QWidget):
             session.close()
 
     def _show_empty(self):
-        self._title_label.setText("<h3 style='color:#999;'>Select an item to view details</h3>")
+        self._title_label.setText(
+            f"<h3 style='color:{COLORS['text_muted']};'>Select an item to view details</h3>"
+        )
         self._meta_label.setText("")
         self._web_view.setHtml("")
         self._photo_gallery.clear()

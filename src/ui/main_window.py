@@ -63,14 +63,17 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
         self._btn_sync_all = QPushButton("Sync All")
+        self._btn_sync_all.setObjectName("toolbar_btn")
         self._btn_sync_all.clicked.connect(self._sync_all)
         toolbar.addWidget(self._btn_sync_all)
 
         self._btn_sync_gmail = QPushButton("Sync Gmail")
+        self._btn_sync_gmail.setObjectName("toolbar_btn")
         self._btn_sync_gmail.clicked.connect(lambda: self._sync_source("gmail"))
         toolbar.addWidget(self._btn_sync_gmail)
 
         self._btn_sync_bw = QPushButton("Sync BW")
+        self._btn_sync_bw.setObjectName("toolbar_btn")
         self._btn_sync_bw.clicked.connect(lambda: self._sync_source("brightwheel"))
         toolbar.addWidget(self._btn_sync_bw)
 
@@ -86,6 +89,7 @@ class MainWindow(QMainWindow):
         self._tabs = QTabWidget()
 
         self._dashboard = DashboardView()
+        self._dashboard.regenerate_requested.connect(lambda: self._run_summary(force=True))
         self._tabs.addTab(self._dashboard, "Dashboard")
 
         self._comms_view = CommunicationsView()
@@ -156,11 +160,11 @@ class MainWindow(QMainWindow):
         self._sync_status_bar.set_syncing(False)
         self._sync_status_bar.set_message(f"Sync error: {error_msg}")
 
-    def _run_summary(self):
+    def _run_summary(self, force: bool = False):
         if self._summary_worker and self._summary_worker.isRunning():
             return
 
-        self._summary_worker = SummaryWorker()
+        self._summary_worker = SummaryWorker(force=force)
         self._summary_worker.finished_signal.connect(self._on_summary_finished)
         self._summary_worker.error_signal.connect(self._on_summary_error)
         self._summary_worker.start()
@@ -168,10 +172,13 @@ class MainWindow(QMainWindow):
     @Slot()
     def _on_summary_finished(self):
         self._dashboard.refresh()
+        self._dashboard.set_regenerate_enabled(True)
         self._sync_status_bar.set_message("Dashboard updated")
 
     @Slot(str)
     def _on_summary_error(self, error_msg: str):
+        self._dashboard.set_regenerate_enabled(True)
+        self._dashboard.set_error(f"Summary generation failed: {error_msg}")
         self._sync_status_bar.set_message(f"Summary error: {error_msg}")
 
     def _set_sync_buttons_enabled(self, enabled: bool):
