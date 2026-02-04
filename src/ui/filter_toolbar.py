@@ -27,7 +27,7 @@ class FilterToolbar(QWidget):
         # Source filter
         layout.addWidget(QLabel("Source:"))
         self._source_combo = QComboBox()
-        self._source_combo.addItems(["All", "Gmail", "Brightwheel"])
+        self._source_combo.addItems(["All", "Gmail", "Brightwheel", "WhatsApp"])
         self._source_combo.currentIndexChanged.connect(self._emit_changed)
         layout.addWidget(self._source_combo)
 

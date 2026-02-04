@@ -1,4 +1,4 @@
-"""Orchestrates fetching from Gmail and Brightwheel, mapping to CommunicationItem."""
+"""Orchestrates fetching from Gmail, Brightwheel, and WhatsApp, mapping to CommunicationItem."""
 
 import json
 import logging
@@ -11,6 +11,8 @@ from src.models.communication import Attachment, CommunicationItem, SyncState
 from src.services.gmail_service import GmailService
 from src.services.brightwheel_auth import BrightwheelAuth
 from src.services.brightwheel_service import BrightwheelService
+from src.services.whatsapp_service import WhatsAppService
+from src.services.credential_manager import get_wa_groups
 from src.utils.date_utils import parse_timestamp
 
 logger = logging.getLogger(__name__)
@@ -258,3 +260,65 @@ class SyncService:
             session.add(att)
 
         return 1
+
+    def sync_whatsapp(self):
+        """Fetch WhatsApp group messages and store them."""
+        groups = get_wa_groups()
+        if not groups:
+            self._progress("No WhatsApp groups configured. Set them in Settings.")
+            return
+
+        svc = WhatsAppService()
+        if not svc.has_session():
+            raise RuntimeError(
+                "WhatsApp not set up. Use Accounts > Setup WhatsApp first."
+            )
+
+        session = get_session()
+        try:
+            state = session.query(SyncState).filter_by(source="whatsapp").first()
+            since = state.last_sync_at if state else None
+
+            total_new = 0
+
+            for group_name in groups:
+                self._progress(f"Scraping WhatsApp group: {group_name}...")
+                messages = svc.scrape_group(group_name, since=since)
+                self._progress(f"Got {len(messages)} messages from {group_name}")
+
+                for msg in messages:
+                    source_id = msg["source_id"]
+
+                    existing = session.query(CommunicationItem).filter_by(
+                        source_id=source_id
+                    ).first()
+                    if existing:
+                        continue
+
+                    item = CommunicationItem(
+                        timestamp=msg["timestamp"],
+                        title=msg["title"],
+                        sender=msg["sender"],
+                        body_plain=msg["body_plain"],
+                        source="whatsapp",
+                        source_id=source_id,
+                    )
+                    session.add(item)
+                    session.flush()
+                    total_new += 1
+
+            # Update sync state
+            if not state:
+                state = SyncState(source="whatsapp")
+                session.add(state)
+            state.last_sync_at = datetime.now()
+
+            session.commit()
+            self._progress(f"WhatsApp sync complete: {total_new} new messages")
+            logger.info(f"WhatsApp sync: {total_new} new messages")
+
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()

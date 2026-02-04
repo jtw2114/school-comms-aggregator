@@ -19,9 +19,11 @@ from src.services.credential_manager import (
     get_bw_email,
     get_bw_password,
     get_claude_api_key,
+    get_wa_groups,
     set_bw_email,
     set_bw_password,
     set_claude_api_key,
+    set_wa_groups,
 )
 from src.config.settings import GOOGLE_CREDENTIALS_PATH
 
@@ -62,6 +64,17 @@ class SettingsDialog(QDialog):
         claude_group.setLayout(claude_layout)
         layout.addWidget(claude_group)
 
+        # WhatsApp groups
+        wa_group = QGroupBox("WhatsApp Groups")
+        wa_layout = QFormLayout()
+
+        self._wa_groups = QLineEdit()
+        self._wa_groups.setPlaceholderText("BISC Parents, Hedgehogs Parents, ...")
+        wa_layout.addRow("Group Names:", self._wa_groups)
+
+        wa_group.setLayout(wa_layout)
+        layout.addWidget(wa_group)
+
         # Google credentials file
         google_group = QGroupBox("Google OAuth Credentials")
         google_layout = QHBoxLayout()
@@ -100,6 +113,10 @@ class SettingsDialog(QDialog):
         if api_key:
             self._claude_key.setPlaceholderText("(saved)")
 
+        wa_groups = get_wa_groups()
+        if wa_groups:
+            self._wa_groups.setText(", ".join(wa_groups))
+
     def _browse_google_creds(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Select Google credentials.json", "", "JSON Files (*.json)"
@@ -122,5 +139,12 @@ class SettingsDialog(QDialog):
         api_key = self._claude_key.text().strip()
         if api_key:
             set_claude_api_key(api_key)
+
+        wa_text = self._wa_groups.text().strip()
+        if wa_text:
+            groups = [g.strip() for g in wa_text.split(",") if g.strip()]
+            set_wa_groups(groups)
+        else:
+            set_wa_groups([])
 
         self.accept()

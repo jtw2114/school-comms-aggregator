@@ -11,6 +11,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 DB_PATH = DATA_DIR / "school_comms.db"
 ATTACHMENTS_DIR = DATA_DIR / "attachments"
 BW_SESSION_PATH = DATA_DIR / "brightwheel_session.json"
+WA_SESSION_PATH = DATA_DIR / "whatsapp_session.json"
 
 # Credentials directory
 CREDENTIALS_DIR = PROJECT_ROOT / "credentials"
@@ -28,6 +29,7 @@ SUMMARY_ROLLING_DAYS = 8
 GMAIL_MAX_RESULTS = 100
 BW_PAGE_SIZE = 50
 BW_LOGIN_TIMEOUT_MS = 120_000
+WA_LOGIN_TIMEOUT_MS = 120_000  # 2 min for QR code scanning
 
 # Brightwheel base URL
 BW_BASE_URL = "https://schools.mybrightwheel.com"

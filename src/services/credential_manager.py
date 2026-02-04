@@ -1,5 +1,7 @@
 """Secure credential storage using Windows Credential Locker via keyring."""
 
+import json
+
 import keyring
 
 from src.config.settings import KEYRING_SERVICE
@@ -50,3 +52,14 @@ def delete_claude_api_key():
         keyring.delete_password(KEYRING_SERVICE, _CLAUDE_API_KEY)
     except keyring.errors.PasswordDeleteError:
         pass
+
+
+def get_wa_groups() -> list[str]:
+    """Get configured WhatsApp group names."""
+    raw = keyring.get_password(KEYRING_SERVICE, "whatsapp_groups")
+    return json.loads(raw) if raw else []
+
+
+def set_wa_groups(groups: list[str]):
+    """Save configured WhatsApp group names."""
+    keyring.set_password(KEYRING_SERVICE, "whatsapp_groups", json.dumps(groups))

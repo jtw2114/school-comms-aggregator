@@ -19,6 +19,7 @@ from src.ui.communications_view import CommunicationsView
 from src.ui.settings_dialog import SettingsDialog
 from src.ui.gmail_auth_dialog import GmailAuthDialog
 from src.ui.brightwheel_auth_dialog import BrightwheelAuthDialog
+from src.ui.whatsapp_setup_dialog import WhatsAppSetupDialog
 from src.workers.sync_worker import SyncWorker
 from src.workers.summary_worker import SummaryWorker
 from src.ui.widgets.status_bar import SyncStatusBar
@@ -50,11 +51,13 @@ class MainWindow(QMainWindow):
         accounts_menu = menu_bar.addMenu("&Accounts")
         accounts_menu.addAction("Setup &Gmail...", self._setup_gmail)
         accounts_menu.addAction("Setup &Brightwheel...", self._setup_brightwheel)
+        accounts_menu.addAction("Setup &WhatsApp...", self._setup_whatsapp)
 
         sync_menu = menu_bar.addMenu("S&ync")
         sync_menu.addAction("Sync &All", self._sync_all)
         sync_menu.addAction("Sync &Gmail Only", lambda: self._sync_source("gmail"))
         sync_menu.addAction("Sync &Brightwheel Only", lambda: self._sync_source("brightwheel"))
+        sync_menu.addAction("Sync &WhatsApp Only", lambda: self._sync_source("whatsapp"))
 
     # ---- Toolbar ----
     def _build_toolbar(self):
@@ -76,6 +79,11 @@ class MainWindow(QMainWindow):
         self._btn_sync_bw.setObjectName("toolbar_btn")
         self._btn_sync_bw.clicked.connect(lambda: self._sync_source("brightwheel"))
         toolbar.addWidget(self._btn_sync_bw)
+
+        self._btn_sync_wa = QPushButton("Sync WhatsApp")
+        self._btn_sync_wa.setObjectName("toolbar_btn")
+        self._btn_sync_wa.clicked.connect(lambda: self._sync_source("whatsapp"))
+        toolbar.addWidget(self._btn_sync_wa)
 
         spacer = QWidget()
         spacer.setFixedWidth(20)
@@ -119,8 +127,13 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     @Slot()
+    def _setup_whatsapp(self):
+        dlg = WhatsAppSetupDialog(self)
+        dlg.exec()
+
+    @Slot()
     def _sync_all(self):
-        self._run_sync(sources=["gmail", "brightwheel"])
+        self._run_sync(sources=["gmail", "brightwheel", "whatsapp"])
 
     @Slot()
     def _sync_source(self, source: str):
@@ -185,3 +198,4 @@ class MainWindow(QMainWindow):
         self._btn_sync_all.setEnabled(enabled)
         self._btn_sync_gmail.setEnabled(enabled)
         self._btn_sync_bw.setEnabled(enabled)
+        self._btn_sync_wa.setEnabled(enabled)

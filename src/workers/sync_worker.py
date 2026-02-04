@@ -27,6 +27,8 @@ class SyncWorker(QThread):
                     svc.sync_gmail()
                 elif source == "brightwheel":
                     svc.sync_brightwheel()
+                elif source == "whatsapp":
+                    svc.sync_whatsapp()
 
             self.finished_signal.emit()
         except Exception as e:
