@@ -17,7 +17,11 @@ logger = logging.getLogger(__name__)
 SUMMARY_SYSTEM_PROMPT = """\
 You are a helpful assistant that analyzes school communications for a parent.
 You will be given a set of emails and activity feed items from a single day.
-Extract and categorize the information into exactly four categories.
+Extract and categorize the information into exactly four categories plus a structured overview.
+
+Context: The parent has two children at BISC (school):
+- Nia Whyte is in the Lovable Lambs room
+- Zoe Whyte is in the Hedgehogs room
 
 Respond with valid JSON matching this schema:
 {
@@ -25,7 +29,11 @@ Respond with valid JSON matching this schema:
   "deadlines": ["string describing each deadline or due date mentioned"],
   "curriculum_updates": ["string describing each curriculum/learning update"],
   "action_items": ["string describing each thing requiring parent action"],
-  "summary": "A brief 2-3 sentence overall summary of the day's communications"
+  "overview": {
+    "nia_whyte_lovable_lambs": "2-3 sentence summary of Nia's day, activities, and any updates specific to her or the Lovable Lambs room",
+    "zoe_whyte_hedgehogs": "2-3 sentence summary of Zoe's day, activities, and any updates specific to her or the Hedgehogs room",
+    "general_bisc": "2-3 sentence summary of school-wide updates, announcements, or items not specific to either child"
+  }
 }
 
 Rules:
@@ -33,6 +41,7 @@ Rules:
 - Include specific dates when mentioned
 - If a category has no items, return an empty array
 - For action_items, start with the action verb (e.g., "Sign permission slip for...", "Send $15 for...")
+- For overview sections, if there is no information for a particular child or general updates, use an empty string
 - Only include information actually present in the communications, do not invent items
 - Return ONLY valid JSON, no markdown formatting
 """
@@ -127,8 +136,23 @@ class SummaryService:
                     "deadlines": [],
                     "curriculum_updates": [],
                     "action_items": [],
-                    "summary": response_text[:500],
+                    "overview": {
+                        "nia_whyte_lovable_lambs": "",
+                        "zoe_whyte_hedgehogs": "",
+                        "general_bisc": response_text[:500],
+                    },
                 }
+
+        # Serialize the structured overview as JSON for storage in raw_summary
+        overview = parsed.get("overview", {})
+        if isinstance(overview, str):
+            # Backwards compat: if model returned a plain string, treat as general
+            overview = {
+                "nia_whyte_lovable_lambs": "",
+                "zoe_whyte_hedgehogs": "",
+                "general_bisc": overview,
+            }
+        raw_summary_json = json.dumps(overview)
 
         # Store or update summary
         if existing:
@@ -136,7 +160,7 @@ class SummaryService:
             existing.deadlines = json.dumps(parsed.get("deadlines", []))
             existing.curriculum_updates = json.dumps(parsed.get("curriculum_updates", []))
             existing.action_items = json.dumps(parsed.get("action_items", []))
-            existing.raw_summary = parsed.get("summary", "")
+            existing.raw_summary = raw_summary_json
             existing.source_item_ids = current_ids_json
             existing.generated_at = datetime.now()
         else:
@@ -146,7 +170,7 @@ class SummaryService:
                 deadlines=json.dumps(parsed.get("deadlines", [])),
                 curriculum_updates=json.dumps(parsed.get("curriculum_updates", [])),
                 action_items=json.dumps(parsed.get("action_items", [])),
-                raw_summary=parsed.get("summary", ""),
+                raw_summary=raw_summary_json,
                 source_item_ids=current_ids_json,
                 generated_at=datetime.now(),
             )
@@ -233,18 +257,37 @@ class SummaryService:
 
         return aggregated
 
-    def get_rolling_raw_summaries(self, days: int = SUMMARY_ROLLING_DAYS) -> str:
-        """Concatenate raw_summary text across the rolling window with date headers.
+    def get_rolling_raw_summaries(self, days: int = SUMMARY_ROLLING_DAYS) -> dict[str, list[str]]:
+        """Aggregate structured overview summaries across the rolling window.
 
-        Returns a single string suitable for display in the overview card.
+        Returns a dict with keys: nia_whyte_lovable_lambs, zoe_whyte_hedgehogs, general_bisc.
+        Each value is a list of "date: summary" strings.
         """
         summaries = self.get_rolling_summaries(days)
-        parts = []
+        result: dict[str, list[str]] = {
+            "nia_whyte_lovable_lambs": [],
+            "zoe_whyte_hedgehogs": [],
+            "general_bisc": [],
+        }
+
         for date_str in sorted(summaries.keys(), reverse=True):
             s = summaries[date_str]
-            if s.raw_summary:
-                parts.append(f"{date_str}: {s.raw_summary}")
-        return "\n\n".join(parts)
+            if not s.raw_summary:
+                continue
+
+            # Try to parse as structured JSON; fall back to legacy plain text
+            try:
+                overview = json.loads(s.raw_summary)
+            except (json.JSONDecodeError, TypeError):
+                # Legacy format: plain text string — put into general_bisc
+                overview = {"general_bisc": s.raw_summary}
+
+            for key in result:
+                text = overview.get(key, "")
+                if text and text.strip():
+                    result[key].append(f"{date_str}: {text.strip()}")
+
+        return result
 
     def _sync_checklist_from_summaries(self, days: int = SUMMARY_ROLLING_DAYS):
         """Sync aggregated action_items and key_dates to the checklist table.

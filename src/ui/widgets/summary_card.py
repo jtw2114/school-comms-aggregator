@@ -74,7 +74,13 @@ class SummaryCard(QFrame):
             return
 
         for item_text in items:
-            bullet = QLabel(f"  \u2022  {item_text}")
+            bullet = QLabel(
+                f"<table cellpadding='0' cellspacing='0'><tr>"
+                f"<td style='vertical-align:top;padding-right:6px;'>\u2022</td>"
+                f"<td>{item_text}</td>"
+                f"</tr></table>"
+            )
+            bullet.setTextFormat(Qt.TextFormat.RichText)
             bullet.setWordWrap(True)
             self._items_layout.addWidget(bullet)
 

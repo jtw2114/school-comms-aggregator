@@ -69,9 +69,15 @@ class DashboardView(QWidget):
         self._error_label.setVisible(False)
         self._layout.addWidget(self._error_label)
 
-        # Overview card (raw summary text)
-        self._overview_card = SummaryCard("OVERVIEW", "\U0001F4CB")
-        self._layout.addWidget(self._overview_card)
+        # Overview cards (one per child + general)
+        self._nia_card = SummaryCard("UPDATES ON NIA WHYTE AND THE LOVABLE LAMBS", "\U0001F411")
+        self._layout.addWidget(self._nia_card)
+
+        self._zoe_card = SummaryCard("UPDATES ON ZOE WHYTE AND THE HEDGEHOGS", "\U0001F994")
+        self._layout.addWidget(self._zoe_card)
+
+        self._general_card = SummaryCard("GENERAL BISC UPDATES", "\U0001F3EB")
+        self._layout.addWidget(self._general_card)
 
         # Checklist cards (Key Dates + Action Items)
         self._key_dates_card = ChecklistCard("KEY DATES", "\U0001F4C5")
@@ -115,20 +121,18 @@ class DashboardView(QWidget):
             svc = SummaryService()
             agg = svc.get_aggregated_summary()
 
-            # Overview: show raw summary text
-            raw_text = svc.get_rolling_raw_summaries()
-            if raw_text:
-                # Split into individual summary lines for display
-                self._overview_card.set_items(
-                    [line.strip() for line in raw_text.split("\n\n") if line.strip()]
-                )
-            else:
-                self._overview_card.set_items([])
+            # Overview: show structured summaries per child/general
+            overview = svc.get_rolling_raw_summaries()
+            self._nia_card.set_items(overview.get("nia_whyte_lovable_lambs", []))
+            self._zoe_card.set_items(overview.get("zoe_whyte_hedgehogs", []))
+            self._general_card.set_items(overview.get("general_bisc", []))
 
             self._deadlines_card.set_items(agg["deadlines"])
             self._curriculum_card.set_items(agg["curriculum_updates"])
         except Exception:
-            self._overview_card.set_items([])
+            self._nia_card.set_items([])
+            self._zoe_card.set_items([])
+            self._general_card.set_items([])
             self._deadlines_card.set_items([])
             self._curriculum_card.set_items([])
 
