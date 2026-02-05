@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from sqlalchemy.exc import IntegrityError
 
@@ -390,7 +390,7 @@ class SyncService:
                 mime_type = _EXT_MIME_MAP.get(ext, "image/jpeg")
                 att = Attachment(
                     communication_id=item.id,
-                    filename=photo_url.split("/")[-1] if "/" in photo_url else "photo.jpg",
+                    filename=unquote(urlparse(photo_url).path.rsplit("/", 1)[-1]) or "photo.jpg",
                     mime_type=mime_type,
                     remote_url=photo_url,
                     is_downloaded=False,

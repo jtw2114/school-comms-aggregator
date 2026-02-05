@@ -3,12 +3,23 @@
 import json
 import logging
 from datetime import datetime
+from urllib.parse import unquote, urlparse
 
 import requests
 
 from src.config.settings import BW_API_BASE, BW_PAGE_SIZE
 from src.services.brightwheel_auth import BrightwheelAuth
 from src.utils.date_utils import parse_timestamp
+
+
+def _filename_from_url(url: str, default: str = "attachment") -> str:
+    """Extract a clean filename from a URL, stripping query params and decoding."""
+    try:
+        path = urlparse(url).path
+        name = path.rsplit("/", 1)[-1] if "/" in path else default
+        return unquote(name) if name else default
+    except Exception:
+        return default
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +194,7 @@ class BrightwheelService:
                     attachment_list.append({
                         "url": url,
                         "content_type": m.get("content_type", "image/jpeg"),
-                        "filename": m.get("filename", url.split("/")[-1] if "/" in url else "photo.jpg"),
+                        "filename": m.get("filename") or _filename_from_url(url, "photo.jpg"),
                     })
         elif isinstance(media, dict) and media.get("image_url"):
             url = media["image_url"]
@@ -191,7 +202,7 @@ class BrightwheelService:
             attachment_list.append({
                 "url": url,
                 "content_type": media.get("content_type", "image/jpeg"),
-                "filename": media.get("filename", url.split("/")[-1] if "/" in url else "photo.jpg"),
+                "filename": media.get("filename") or _filename_from_url(url, "photo.jpg"),
             })
 
         created = activity.get("created_at") or activity.get("event_date", "")
@@ -242,7 +253,7 @@ class BrightwheelService:
                         attachment_list.append({
                             "url": url,
                             "content_type": att.get("content_type", ""),
-                            "filename": att.get("filename", url.split("/")[-1] if "/" in url else "attachment"),
+                            "filename": att.get("filename") or _filename_from_url(url),
                         })
 
         created = msg.get("created_at", "")
