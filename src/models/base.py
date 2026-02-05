@@ -1,9 +1,13 @@
 """SQLAlchemy engine and session factory."""
 
-from sqlalchemy import create_engine
+import logging
+
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from src.config.settings import DB_PATH, ensure_dirs
+
+logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -40,6 +44,18 @@ def init_db():
     )
 
     Base.metadata.create_all(get_engine())
+    _migrate_attachment_extracted_text()
+
+
+def _migrate_attachment_extracted_text():
+    """Add extracted_text column to attachments table if missing (safe migration)."""
+    engine = get_engine()
+    inspector = inspect(engine)
+    columns = [col["name"] for col in inspector.get_columns("attachments")]
+    if "extracted_text" not in columns:
+        logger.info("Migrating: adding extracted_text column to attachments table")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE attachments ADD COLUMN extracted_text TEXT"))
 
 
 def get_session():

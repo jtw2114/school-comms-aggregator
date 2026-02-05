@@ -143,6 +143,24 @@ class DetailPanel(QWidget):
                 for att in other_attachments:
                     status = " (downloaded)" if att.is_downloaded else ""
                     att_lines.append(f"\u2022 {att.filename} ({att.mime_type or 'unknown'}){status}<br>")
+                    # Show extracted text preview for PDFs
+                    if att.extracted_text:
+                        preview = att.extracted_text[:500]
+                        if len(att.extracted_text) > 500:
+                            preview += "..."
+                        escaped_preview = (
+                            preview.replace("&", "&amp;")
+                            .replace("<", "&lt;")
+                            .replace(">", "&gt;")
+                            .replace("\n", "<br>")
+                        )
+                        att_lines.append(
+                            f"<div style='background:{COLORS['surface']};"
+                            f"border:1px solid {COLORS['border_light']};"
+                            f"border-radius:4px;padding:6px;margin:4px 0 8px 16px;"
+                            f"font-size:12px;color:{COLORS['text_secondary']};'>"
+                            f"<b>Extracted text:</b><br>{escaped_preview}</div>"
+                        )
                 self._attachments_label.setText("".join(att_lines))
                 self._attachments_label.setVisible(True)
             else:

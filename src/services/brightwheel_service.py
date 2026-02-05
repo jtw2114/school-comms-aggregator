@@ -171,15 +171,28 @@ class BrightwheelService:
             if details.get("amount_type"):
                 body_parts.append(f"Amount: {details['amount_type']}")
 
-        # Extract photos from media
+        # Extract photos and structured attachments from media
         photos = []
+        attachment_list = []
         media = activity.get("media")
         if isinstance(media, list):
             for m in media:
                 if isinstance(m, dict) and m.get("image_url"):
-                    photos.append(m["image_url"])
+                    url = m["image_url"]
+                    photos.append(url)
+                    attachment_list.append({
+                        "url": url,
+                        "content_type": m.get("content_type", "image/jpeg"),
+                        "filename": m.get("filename", url.split("/")[-1] if "/" in url else "photo.jpg"),
+                    })
         elif isinstance(media, dict) and media.get("image_url"):
-            photos.append(media["image_url"])
+            url = media["image_url"]
+            photos.append(url)
+            attachment_list.append({
+                "url": url,
+                "content_type": media.get("content_type", "image/jpeg"),
+                "filename": media.get("filename", url.split("/")[-1] if "/" in url else "photo.jpg"),
+            })
 
         created = activity.get("created_at") or activity.get("event_date", "")
 
@@ -194,6 +207,7 @@ class BrightwheelService:
             "action_type": action_type,
             "details": json.dumps(activity, default=str),
             "photos": photos,
+            "attachment_list": attachment_list,
         }
 
     @staticmethod
@@ -217,6 +231,7 @@ class BrightwheelService:
 
         # Extract attachments/media from message
         photos = []
+        attachment_list = []
         attachments = msg.get("attachments", [])
         if isinstance(attachments, list):
             for att in attachments:
@@ -224,6 +239,11 @@ class BrightwheelService:
                     url = att.get("image_url") or att.get("url", "")
                     if url:
                         photos.append(url)
+                        attachment_list.append({
+                            "url": url,
+                            "content_type": att.get("content_type", ""),
+                            "filename": att.get("filename", url.split("/")[-1] if "/" in url else "attachment"),
+                        })
 
         created = msg.get("created_at", "")
 
@@ -238,4 +258,5 @@ class BrightwheelService:
             "action_type": msg_type,
             "details": json.dumps(result, default=str),
             "photos": photos,
+            "attachment_list": attachment_list,
         }

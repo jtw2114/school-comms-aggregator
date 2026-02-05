@@ -7,6 +7,8 @@ from datetime import date, datetime, timedelta
 import anthropic
 
 from src.config.settings import CLAUDE_MODEL, SUMMARY_ROLLING_DAYS
+from sqlalchemy.orm import joinedload
+
 from src.models.base import get_session
 from src.models.communication import CommunicationItem, DailySummary
 from src.services.credential_manager import get_claude_api_key
@@ -88,6 +90,7 @@ class SummaryService:
 
         items = (
             session.query(CommunicationItem)
+            .options(joinedload(CommunicationItem.attachments))
             .filter(CommunicationItem.timestamp >= day_start)
             .filter(CommunicationItem.timestamp <= day_end)
             .order_by(CommunicationItem.timestamp)
@@ -195,6 +198,14 @@ class SummaryService:
                 if len(body) > 3000:
                     body = body[:3000] + "\n[... truncated ...]"
                 parts.append(f"Content:\n{body}")
+
+            # Include extracted text from PDF attachments
+            for att in item.attachments:
+                if att.extracted_text:
+                    att_text = att.extracted_text
+                    if len(att_text) > 3000:
+                        att_text = att_text[:3000] + "\n[... truncated ...]"
+                    parts.append(f"[Attached PDF: {att.filename}]\n{att_text}")
 
             if item.bw_student_name:
                 parts.append(f"Student: {item.bw_student_name}")

@@ -65,6 +65,7 @@ class Attachment(Base):
     remote_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     local_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_downloaded: Mapped[bool] = mapped_column(Boolean, default=False)
+    extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     communication: Mapped["CommunicationItem"] = relationship(back_populates="attachments")
 

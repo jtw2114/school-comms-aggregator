@@ -2,10 +2,13 @@
 
 import json
 import logging
+import os
 from datetime import datetime
+from urllib.parse import urlparse
 
 from sqlalchemy.exc import IntegrityError
 
+from src.config.settings import ATTACHMENTS_DIR
 from src.models.base import get_session
 from src.models.communication import Attachment, CommunicationItem, SyncState
 from src.services.gmail_service import GmailService
@@ -16,6 +19,20 @@ from src.services.credential_manager import get_wa_groups
 from src.utils.date_utils import parse_timestamp
 
 logger = logging.getLogger(__name__)
+
+# Mime type mapping by file extension
+_EXT_MIME_MAP = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+PDF_MAX_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 class SyncService:
@@ -219,6 +236,104 @@ class SyncService:
         finally:
             session.close()
 
+        # Download and extract text from PDF attachments (separate transaction)
+        try:
+            self._download_and_extract_pdfs(auth)
+        except Exception:
+            logger.warning("PDF download/extraction failed", exc_info=True)
+
+    def _download_and_extract_pdfs(self, auth: BrightwheelAuth):
+        """Download PDF attachments from Brightwheel and extract text with pdfplumber."""
+        import pdfplumber
+        import requests
+
+        session = get_session()
+        try:
+            pending_pdfs = (
+                session.query(Attachment)
+                .join(CommunicationItem)
+                .filter(
+                    CommunicationItem.source == "brightwheel",
+                    Attachment.mime_type == "application/pdf",
+                    Attachment.is_downloaded == False,  # noqa: E712
+                )
+                .all()
+            )
+
+            if not pending_pdfs:
+                return
+
+            self._progress(f"Downloading {len(pending_pdfs)} PDF attachment(s)...")
+            logger.info(f"Downloading {len(pending_pdfs)} PDF attachment(s)")
+
+            http_session = requests.Session()
+            http_session.cookies.update(auth.get_cookies_dict())
+
+            ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
+
+            for att in pending_pdfs:
+                try:
+                    if not att.remote_url:
+                        continue
+
+                    # Download with size limit
+                    resp = http_session.get(att.remote_url, stream=True, timeout=30)
+                    resp.raise_for_status()
+
+                    content_length = int(resp.headers.get("content-length", 0))
+                    if content_length > PDF_MAX_SIZE:
+                        logger.warning(f"PDF too large ({content_length} bytes), skipping: {att.filename}")
+                        continue
+
+                    # Read content with size guard
+                    chunks = []
+                    total_bytes = 0
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        total_bytes += len(chunk)
+                        if total_bytes > PDF_MAX_SIZE:
+                            logger.warning(f"PDF exceeded size limit during download, skipping: {att.filename}")
+                            break
+                        chunks.append(chunk)
+                    else:
+                        # Only process if download completed (no break)
+                        pdf_data = b"".join(chunks)
+
+                        # Save to disk
+                        safe_filename = att.filename.replace("/", "_").replace("\\", "_")
+                        local_filename = f"{att.communication_id}_{att.id}_{safe_filename}"
+                        local_path = ATTACHMENTS_DIR / local_filename
+                        local_path.write_bytes(pdf_data)
+
+                        # Extract text
+                        extracted_pages = []
+                        with pdfplumber.open(local_path) as pdf:
+                            for page in pdf.pages:
+                                page_text = page.extract_text()
+                                if page_text:
+                                    extracted_pages.append(page_text)
+
+                        extracted_text = "\n\n".join(extracted_pages) if extracted_pages else ""
+
+                        # Update record
+                        att.local_path = str(local_path)
+                        att.is_downloaded = True
+                        att.extracted_text = extracted_text if extracted_text else None
+
+                        logger.info(
+                            f"Extracted {len(extracted_text)} chars from PDF: {att.filename}"
+                        )
+
+                except Exception:
+                    logger.warning(f"Failed to download/extract PDF: {att.filename}", exc_info=True)
+
+            session.commit()
+
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
     def _store_bw_item(self, session, parsed: dict) -> int:
         """Store a parsed Brightwheel item. Returns 1 if new, 0 if duplicate."""
         source_id = parsed.get("source_id", "")
@@ -249,15 +364,38 @@ class SyncService:
         session.add(item)
         session.flush()
 
-        for photo_url in parsed.get("photos", []):
-            att = Attachment(
-                communication_id=item.id,
-                filename=photo_url.split("/")[-1] if "/" in photo_url else "photo.jpg",
-                mime_type="image/jpeg",
-                remote_url=photo_url,
-                is_downloaded=False,
-            )
-            session.add(att)
+        # Use structured attachment_list if available, fall back to photos list
+        attachment_list = parsed.get("attachment_list", [])
+        if attachment_list:
+            for att_info in attachment_list:
+                url = att_info["url"]
+                filename = att_info.get("filename", "attachment")
+                # Determine mime type: use API content_type, then URL extension, then default
+                mime_type = att_info.get("content_type", "")
+                if not mime_type:
+                    ext = os.path.splitext(urlparse(url).path)[1].lower()
+                    mime_type = _EXT_MIME_MAP.get(ext, "image/jpeg")
+                att = Attachment(
+                    communication_id=item.id,
+                    filename=filename,
+                    mime_type=mime_type,
+                    remote_url=url,
+                    is_downloaded=False,
+                )
+                session.add(att)
+        else:
+            # Backward compat: fall back to plain photos list
+            for photo_url in parsed.get("photos", []):
+                ext = os.path.splitext(urlparse(photo_url).path)[1].lower()
+                mime_type = _EXT_MIME_MAP.get(ext, "image/jpeg")
+                att = Attachment(
+                    communication_id=item.id,
+                    filename=photo_url.split("/")[-1] if "/" in photo_url else "photo.jpg",
+                    mime_type=mime_type,
+                    remote_url=photo_url,
+                    is_downloaded=False,
+                )
+                session.add(att)
 
         return 1
 
