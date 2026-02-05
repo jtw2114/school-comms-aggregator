@@ -29,7 +29,7 @@ Respond with valid JSON matching this schema:
 {
   "key_dates": ["string describing each upcoming date/event mentioned"],
   "deadlines": ["string describing each deadline or due date mentioned"],
-  "curriculum_updates": ["string describing each curriculum/learning update"],
+  "curriculum_updates": ["string describing each curriculum, learning, or classroom activity update — extract these thoroughly from weekly newsletter PDFs"],
   "action_items": ["string describing each thing requiring parent action"],
   "overview": {
     "nia_whyte_lovable_lambs": "2-3 sentence summary of Nia's day, activities, and any updates specific to her or the Lovable Lambs room",
@@ -43,6 +43,10 @@ Rules:
 - Include specific dates when mentioned
 - If a category has no items, return an empty array
 - For action_items, start with the action verb (e.g., "Sign permission slip for...", "Send $15 for...")
+- For curriculum_updates, pay special attention to attached PDF newsletters (weekly emails). Extract ALL learning topics, themes, skills, and classroom activities mentioned. Include the room/class name. Examples:
+  - "Lovable Lambs - Explored shapes and colors through collage art and gluing activities"
+  - "Hedgehogs - Practiced phonics blending and segmenting with CVC words"
+  - "Hedgehogs - Math focus on doubles and equal pairs using Numicon and dice games"
 - For overview sections, if there is no information for a particular child or general updates, use an empty string
 - Only include information actually present in the communications, do not invent items
 - Return ONLY valid JSON, no markdown formatting
@@ -117,13 +121,15 @@ class SummaryService:
         logger.info(f"Generating summary for {date_str} ({len(items)} items)")
         response = self._client.messages.create(
             model=CLAUDE_MODEL,
-            max_tokens=1024,
+            max_tokens=2048,
             system=SUMMARY_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt_content}],
         )
 
-        # Parse response
-        response_text = response.content[0].text
+        # Parse response — strip markdown fencing if present
+        response_text = response.content[0].text.strip()
+        if response_text.startswith("```"):
+            response_text = response_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
         try:
             parsed = json.loads(response_text)
         except json.JSONDecodeError:
