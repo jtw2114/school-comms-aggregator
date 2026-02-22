@@ -13,31 +13,21 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from src.models.base import get_session
 from src.models.communication import Attachment, CommunicationItem
-from src.ui.theme import COLORS, source_badge_html
+from src.ui.theme import COLORS, get_webview_css, source_badge_html
 from src.ui.widgets.photo_gallery import PhotoGallery
 
 
 def _themed_html_wrapper(inner_html: str) -> str:
     """Wrap HTML content with themed CSS for the web view."""
+    css = get_webview_css()
     return f"""<!DOCTYPE html>
 <html><head><style>
-    body {{
-        font-family: Helvetica, Arial, sans-serif;
-        font-size: 14px;
-        color: {COLORS['text_primary']};
-        background-color: {COLORS['surface']};
-        line-height: 1.5;
-        padding: 8px;
-        margin: 0;
-    }}
-    a {{ color: {COLORS['accent']}; }}
-    a:hover {{ color: {COLORS['accent_hover']}; }}
-    pre {{
-        font-family: Helvetica, Arial, sans-serif;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-    }}
-    img {{ max-width: 100%; height: auto; }}
+{css}
+pre {{
+    font-family: inherit;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}}
 </style></head><body>{inner_html}</body></html>"""
 
 
@@ -48,7 +38,8 @@ class DetailPanel(QWidget):
         super().__init__(parent)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
 
         # Header area
         self._title_label = QLabel()
@@ -57,14 +48,15 @@ class DetailPanel(QWidget):
         layout.addWidget(self._title_label)
 
         self._meta_label = QLabel()
+        self._meta_label.setObjectName("caption")
         self._meta_label.setWordWrap(True)
-        self._meta_label.setTextFormat(Qt.TextFormat.RichText)
         layout.addWidget(self._meta_label)
 
         # Separator
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(f"color: {COLORS['border_light']};")
+        sep.setFrameShadow(QFrame.Shadow.Plain)
+        sep.setLineWidth(1)
         layout.addWidget(sep)
 
         # Body content (HTML via QWebEngineView)
@@ -96,23 +88,19 @@ class DetailPanel(QWidget):
             # Title with source badge
             badge = source_badge_html(item.source)
             self._title_label.setText(
-                f"{badge}"
-                f"<br><h3 style='color:{COLORS['navy']};margin-top:6px;'>{item.title}</h3>"
+                f"{badge}<br><span style='font-size:18px;font-weight:600;'>{item.title}</span>"
             )
 
             # Meta info
-            meta_parts = [f"<b>From:</b> {item.sender}"]
-            meta_parts.append(f"<b>Date:</b> {item.timestamp.strftime('%B %d, %Y %I:%M %p')}")
+            meta_parts = [f"From: {item.sender}"]
+            meta_parts.append(f"Date: {item.timestamp.strftime('%B %d, %Y %I:%M %p')}")
             if item.bw_student_name:
-                meta_parts.append(f"<b>Student:</b> {item.bw_student_name}")
+                meta_parts.append(f"Student: {item.bw_student_name}")
             if item.bw_room:
-                meta_parts.append(f"<b>Room:</b> {item.bw_room}")
+                meta_parts.append(f"Room: {item.bw_room}")
             if item.bw_action_type:
-                meta_parts.append(f"<b>Type:</b> {item.bw_action_type}")
-            self._meta_label.setText(
-                f"<span style='color:{COLORS['text_secondary']};'>"
-                + "<br>".join(meta_parts) + "</span>"
-            )
+                meta_parts.append(f"Type: {item.bw_action_type}")
+            self._meta_label.setText(" • ".join(meta_parts))
 
             # Body content
             if item.body_html:
@@ -121,9 +109,7 @@ class DetailPanel(QWidget):
                 escaped = item.body_plain.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 self._web_view.setHtml(_themed_html_wrapper(f"<pre>{escaped}</pre>"))
             else:
-                self._web_view.setHtml(
-                    _themed_html_wrapper(f"<p style='color:{COLORS['text_muted']};'>No content</p>")
-                )
+                self._web_view.setHtml(_themed_html_wrapper("<p style='color:#86868B;'>No content</p>"))
 
             # Attachments
             attachments = session.query(Attachment).filter_by(communication_id=item.id).all()
@@ -139,10 +125,10 @@ class DetailPanel(QWidget):
             self._photo_gallery.set_photos(photo_paths)
 
             if other_attachments:
-                att_lines = [f"<b style='color:{COLORS['navy']};'>Attachments:</b><br>"]
+                att_lines = ["<b>Attachments</b><br>"]
                 for att in other_attachments:
                     status = " (downloaded)" if att.is_downloaded else ""
-                    att_lines.append(f"\u2022 {att.filename} ({att.mime_type or 'unknown'}){status}<br>")
+                    att_lines.append(f"• {att.filename} ({att.mime_type or 'unknown'}){status}<br>")
                     # Show extracted text preview for PDFs
                     if att.extracted_text:
                         preview = att.extracted_text[:500]
@@ -155,10 +141,10 @@ class DetailPanel(QWidget):
                             .replace("\n", "<br>")
                         )
                         att_lines.append(
-                            f"<div style='background:{COLORS['surface']};"
-                            f"border:1px solid {COLORS['border_light']};"
-                            f"border-radius:4px;padding:6px;margin:4px 0 8px 16px;"
-                            f"font-size:12px;color:{COLORS['text_secondary']};'>"
+                            f"<div style='background:#F5F5F7;"
+                            f"border:1px solid #E5E5EA;"
+                            f"border-radius:8px;padding:10px;margin:8px 0 12px 16px;"
+                            f"font-size:12px;color:#86868B;'>"
                             f"<b>Extracted text:</b><br>{escaped_preview}</div>"
                         )
                 self._attachments_label.setText("".join(att_lines))
@@ -171,7 +157,7 @@ class DetailPanel(QWidget):
 
     def _show_empty(self):
         self._title_label.setText(
-            f"<h3 style='color:{COLORS['text_muted']};'>Select an item to view details</h3>"
+            "<span style='font-size:16px;color:#86868B;'>Select an item to view details</span>"
         )
         self._meta_label.setText("")
         self._web_view.setHtml("")

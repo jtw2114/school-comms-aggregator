@@ -31,6 +31,38 @@ class ChecklistService:
         finally:
             session.close()
 
+    def get_unchecked_items(self, category: str) -> list[ChecklistItem]:
+        """Return unchecked checklist items for a category."""
+        session = get_session()
+        try:
+            items = (
+                session.query(ChecklistItem)
+                .filter_by(category=category, is_checked=False)
+                .order_by(ChecklistItem.created_at)
+                .all()
+            )
+            for item in items:
+                session.expunge(item)
+            return items
+        finally:
+            session.close()
+
+    def get_checked_items(self, category: str) -> list[ChecklistItem]:
+        """Return checked (archived) checklist items for a category."""
+        session = get_session()
+        try:
+            items = (
+                session.query(ChecklistItem)
+                .filter_by(category=category, is_checked=True)
+                .order_by(ChecklistItem.checked_at.desc())
+                .all()
+            )
+            for item in items:
+                session.expunge(item)
+            return items
+        finally:
+            session.close()
+
     def toggle_item(self, item_id: int) -> bool:
         """Toggle the checked state of an item. Returns new checked state."""
         session = get_session()

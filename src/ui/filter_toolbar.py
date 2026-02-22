@@ -20,9 +20,11 @@ class FilterToolbar(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("FilterToolbar")
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(12)
 
         # Source filter
         layout.addWidget(QLabel("Source:"))

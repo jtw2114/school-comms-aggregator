@@ -12,6 +12,7 @@ DB_PATH = DATA_DIR / "school_comms.db"
 ATTACHMENTS_DIR = DATA_DIR / "attachments"
 BW_SESSION_PATH = DATA_DIR / "brightwheel_session.json"
 WA_SESSION_PATH = DATA_DIR / "whatsapp_session.json"
+WA_PROFILE_DIR = DATA_DIR / "whatsapp_profile"
 
 # Credentials directory
 CREDENTIALS_DIR = PROJECT_ROOT / "credentials"
@@ -25,7 +26,7 @@ GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 KEYRING_SERVICE = "school-comms-aggregator"
 
 # Sync defaults
-SUMMARY_ROLLING_DAYS = 8
+SUMMARY_ROLLING_DAYS = 14
 GMAIL_MAX_RESULTS = 100
 BW_PAGE_SIZE = 50
 BW_LOGIN_TIMEOUT_MS = 120_000

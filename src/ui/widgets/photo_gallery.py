@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.ui.theme import COLORS
+from src.ui.theme import COLORS, RADIUS
 
 
 class PhotoGallery(QWidget):
@@ -25,9 +25,11 @@ class PhotoGallery(QWidget):
         super().__init__(parent)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 4, 0, 4)
+        layout.setContentsMargins(0, 8, 0, 8)
+        layout.setSpacing(8)
 
-        self._title = QLabel(f"<b style='color:{COLORS['navy']};'>Photos</b>")
+        self._title = QLabel("Photos")
+        self._title.setObjectName("GalleryTitle")
         self._title.setVisible(False)
         layout.addWidget(self._title)
 
@@ -60,14 +62,9 @@ class PhotoGallery(QWidget):
             if not path or not os.path.exists(path):
                 # Show placeholder for remote URLs
                 thumb = QLabel("[Photo]")
+                thumb.setObjectName("PhotoPlaceholder")
                 thumb.setFixedSize(QSize(self.THUMB_SIZE, self.THUMB_SIZE))
                 thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                thumb.setStyleSheet(f"""
-                    background-color: {COLORS['surface_hover']};
-                    border: 1px solid {COLORS['border']};
-                    border-radius: 4px;
-                    color: {COLORS['text_muted']};
-                """)
                 self._gallery_layout.addWidget(thumb)
                 loaded += 1
                 continue
@@ -85,7 +82,9 @@ class PhotoGallery(QWidget):
             thumb.setPixmap(scaled)
             thumb.setFixedSize(QSize(self.THUMB_SIZE, self.THUMB_SIZE))
             thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            thumb.setStyleSheet(f"border: 1px solid {COLORS['border']}; border-radius: 4px;")
+            thumb.setStyleSheet(
+                f"border: 1px solid {COLORS['separator']}; border-radius: {RADIUS['md']}px;"
+            )
             self._gallery_layout.addWidget(thumb)
             loaded += 1
 

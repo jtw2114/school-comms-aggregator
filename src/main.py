@@ -3,6 +3,7 @@
 import logging
 import sys
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from src.config.settings import ensure_dirs
@@ -20,6 +21,11 @@ def main():
 
     ensure_dirs()
     init_db()
+
+    # Enable high-DPI scaling
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
 
     app = QApplication(sys.argv)
     app.setApplicationName("School Comms Aggregator")
