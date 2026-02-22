@@ -1,12 +1,14 @@
 """Main application window with tabbed interface."""
 
 from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
     QMenuBar,
     QPushButton,
+    QStackedWidget,
     QStatusBar,
     QTabWidget,
     QToolBar,
@@ -14,8 +16,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.ui.landing_page import LandingPage
 from src.ui.dashboard_view import DashboardView
 from src.ui.communications_view import CommunicationsView
+from src.ui.archive_view import ArchiveView
 from src.ui.settings_dialog import SettingsDialog
 from src.ui.gmail_auth_dialog import GmailAuthDialog
 from src.ui.brightwheel_auth_dialog import BrightwheelAuthDialog
@@ -38,6 +42,7 @@ class MainWindow(QMainWindow):
         self._build_toolbar()
         self._build_central()
         self._build_status_bar()
+        self._build_shortcuts()
 
     # ---- Menu bar ----
     def _build_menu_bar(self):
@@ -64,6 +69,15 @@ class MainWindow(QMainWindow):
         toolbar = QToolBar("Sync")
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
+
+        self._btn_home = QPushButton("🏠 Home")
+        self._btn_home.setObjectName("toolbar_btn")
+        self._btn_home.clicked.connect(self._go_home)
+        toolbar.addWidget(self._btn_home)
+
+        spacer1 = QWidget()
+        spacer1.setFixedWidth(20)
+        toolbar.addWidget(spacer1)
 
         self._btn_sync_all = QPushButton("Sync All")
         self._btn_sync_all.setObjectName("toolbar_btn")
@@ -92,18 +106,50 @@ class MainWindow(QMainWindow):
         self._last_sync_label = QLabel("Last synced: never")
         toolbar.addWidget(self._last_sync_label)
 
-    # ---- Central tabs ----
+    # ---- Central widget with landing page and tabs ----
     def _build_central(self):
+        self._stack = QStackedWidget()
+
+        # Page 0: Landing page
+        self._landing = LandingPage()
+        self._landing.navigate_to_tab.connect(self._on_navigate_to_tab)
+        self._stack.addWidget(self._landing)
+
+        # Page 1: Tab widget with Dashboard, Communications, Archive
         self._tabs = QTabWidget()
 
         self._dashboard = DashboardView()
         self._dashboard.regenerate_requested.connect(lambda: self._run_summary(force=True))
+        self._dashboard.checklist_changed.connect(self._on_checklist_changed)
         self._tabs.addTab(self._dashboard, "Dashboard")
 
         self._comms_view = CommunicationsView()
         self._tabs.addTab(self._comms_view, "All Communications")
 
-        self.setCentralWidget(self._tabs)
+        self._archive = ArchiveView()
+        self._archive.checklist_changed.connect(self._on_checklist_changed)
+        self._tabs.addTab(self._archive, "Archive")
+
+        self._stack.addWidget(self._tabs)
+
+        self.setCentralWidget(self._stack)
+
+    @Slot(int)
+    def _on_navigate_to_tab(self, tab_index: int):
+        """Navigate from landing page to a specific tab."""
+        self._stack.setCurrentIndex(1)  # Switch to tabs page
+        self._tabs.setCurrentIndex(tab_index)
+
+    @Slot()
+    def _go_home(self):
+        """Return to the landing page."""
+        self._stack.setCurrentIndex(0)
+
+    @Slot()
+    def _on_checklist_changed(self):
+        """Refresh both Dashboard and Archive when a checklist item changes."""
+        self._dashboard.refresh()
+        self._archive.refresh()
 
     # ---- Status bar ----
     def _build_status_bar(self):
@@ -193,6 +239,20 @@ class MainWindow(QMainWindow):
         self._dashboard.set_regenerate_enabled(True)
         self._dashboard.set_error(f"Summary generation failed: {error_msg}")
         self._sync_status_bar.set_message(f"Summary error: {error_msg}")
+
+    # ---- Keyboard shortcuts ----
+    def _build_shortcuts(self):
+        find_shortcut = QShortcut(QKeySequence.StandardKey.Find, self)
+        find_shortcut.activated.connect(self._on_find)
+
+    @Slot()
+    def _on_find(self):
+        """Toggle find bar on the currently active tab."""
+        if self._stack.currentIndex() != 1:
+            return  # Only works on tab pages, not landing page
+        current = self._tabs.currentWidget()
+        if hasattr(current, "_find_bar"):
+            current._find_bar.toggle()
 
     def _set_sync_buttons_enabled(self, enabled: bool):
         self._btn_sync_all.setEnabled(enabled)

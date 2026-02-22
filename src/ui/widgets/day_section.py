@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 
 from src.models.base import get_session
 from src.models.communication import CommunicationItem
-from src.ui.theme import COLORS, source_badge_html
+from src.ui.theme import source_badge_html
 from src.utils.date_utils import date_label
 from src.utils.html_utils import truncate_text
 
@@ -28,9 +28,10 @@ class DaySection(QFrame):
         self._date = target_date
         self._expanded = False
         self._items_loaded = False
+        self._item_widgets: list[QWidget] = []
 
-        self.setFrameStyle(QFrame.Shape.NoFrame)
-        self.setStyleSheet(f"DaySection {{ border-bottom: 1px solid {COLORS['border_light']}; }}")
+        self.setObjectName("DaySection")
+        self.setFrameShape(QFrame.Shape.NoFrame)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 2, 4, 2)
@@ -42,6 +43,7 @@ class DaySection(QFrame):
         header_layout.setContentsMargins(0, 4, 0, 4)
 
         self._toggle_btn = QPushButton(self._header_text())
+        self._toggle_btn.setObjectName("DaySectionToggle")
         self._toggle_btn.setFlat(True)
         self._toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._toggle_btn.clicked.connect(self._toggle)
@@ -52,8 +54,8 @@ class DaySection(QFrame):
         # Expandable content
         self._content = QWidget()
         self._content_layout = QVBoxLayout(self._content)
-        self._content_layout.setContentsMargins(24, 0, 8, 8)
-        self._content_layout.setSpacing(4)
+        self._content_layout.setContentsMargins(24, 8, 8, 8)
+        self._content_layout.setSpacing(8)
         self._content.setVisible(False)
         layout.addWidget(self._content)
 
@@ -101,43 +103,43 @@ class DaySection(QFrame):
 
             for item in items:
                 item_widget = self._make_item_widget(item)
+                self._item_widgets.append(item_widget)
                 self._content_layout.addWidget(item_widget)
 
             if not items:
-                empty = QLabel(f"<i style='color:{COLORS['text_muted']};'>No items</i>")
+                empty = QLabel("No items")
+                empty.setObjectName("caption")
                 self._content_layout.addWidget(empty)
         finally:
             session.close()
 
     def _make_item_widget(self, item: CommunicationItem) -> QWidget:
         widget = QFrame()
-        widget.setStyleSheet(f"""
-            QFrame {{
-                background-color: {COLORS['surface']};
-                border: 1px solid {COLORS['border_light']};
-                border-radius: 4px;
-                padding: 6px;
-                margin: 2px 0;
-            }}
-        """)
+        widget.setObjectName("DaySectionItem")
+        widget.setFrameShape(QFrame.Shape.NoFrame)
+
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(2)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(4)
 
         # Source badge + title
-        badge = source_badge_html(item.source)
-        title_label = QLabel(f"{badge}  <b>{item.title}</b>")
+        top = QHBoxLayout()
+        top.setSpacing(8)
+        badge = QLabel(source_badge_html(item.source))
+        badge.setTextFormat(Qt.TextFormat.RichText)
+        badge.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        top.addWidget(badge)
+
+        title_label = QLabel(item.title)
         title_label.setWordWrap(True)
-        title_label.setTextFormat(Qt.TextFormat.RichText)
-        layout.addWidget(title_label)
+        title_label.setObjectName("card_header")
+        top.addWidget(title_label, 1)
+        layout.addLayout(top)
 
         # Sender + time
         time_str = item.timestamp.strftime("%I:%M %p")
-        meta_label = QLabel(
-            f"<span style='color:{COLORS['text_secondary']};font-size:11px;'>"
-            f"{item.sender} - {time_str}</span>"
-        )
-        meta_label.setTextFormat(Qt.TextFormat.RichText)
+        meta_label = QLabel(f"{item.sender} • {time_str}")
+        meta_label.setObjectName("caption")
         layout.addWidget(meta_label)
 
         # Preview text
@@ -145,14 +147,36 @@ class DaySection(QFrame):
         if preview:
             preview_label = QLabel(preview)
             preview_label.setWordWrap(True)
-            preview_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 12px;")
+            preview_label.setObjectName("caption")
             layout.addWidget(preview_label)
 
         return widget
 
+    def filter_text(self, query: str) -> int:
+        """Show/hide item widgets matching query. Returns count of visible items."""
+        if not query:
+            for w in self._item_widgets:
+                w.setVisible(True)
+            self.setVisible(True)
+            return len(self._item_widgets)
+
+        query_lower = query.lower()
+        visible = 0
+        for w in self._item_widgets:
+            text = " ".join(
+                label.text()
+                for label in w.findChildren(QLabel)
+            ).lower()
+            matches = query_lower in text
+            w.setVisible(matches)
+            if matches:
+                visible += 1
+        return visible
+
     def refresh(self):
         """Reload the section."""
         self._items_loaded = False
+        self._item_widgets.clear()
         # Clear content
         while self._content_layout.count():
             child = self._content_layout.takeAt(0)

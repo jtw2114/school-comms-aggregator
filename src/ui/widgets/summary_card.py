@@ -1,4 +1,4 @@
-"""Collapsible card widget for displaying a summary category (dates, deadlines, etc.)."""
+"""Card widget for displaying a summary category (dates, deadlines, etc.)."""
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -8,8 +8,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-from src.ui.theme import COLORS
 
 
 class SummaryCard(QFrame):
@@ -21,42 +19,30 @@ class SummaryCard(QFrame):
         self._icon = icon
 
         self.setObjectName("SummaryCard")
-        self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
-        self.setLineWidth(0)
+        self.setFrameShape(QFrame.Shape.NoFrame)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        # Accent strip at top
-        accent_strip = QFrame()
-        accent_strip.setFixedHeight(4)
-        accent_strip.setStyleSheet(f"background-color: {COLORS['accent']}; border-radius: 0;")
-        layout.addWidget(accent_strip)
-
-        # Content area
-        content = QWidget()
-        self._content_layout = QVBoxLayout(content)
-        self._content_layout.setContentsMargins(14, 10, 14, 10)
-        self._content_layout.setSpacing(4)
-        layout.addWidget(content)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(8)
 
         # Header
         header_text = f"{icon}  {title}" if icon else title
-        self._header = QLabel(
-            f"<b style='font-size:14px;color:{COLORS['navy']};'>{header_text}</b>"
-        )
-        self._content_layout.addWidget(self._header)
+        self._header = QLabel(header_text)
+        self._header.setObjectName("card_header")
+        layout.addWidget(self._header)
 
         # Items container
         self._items_widget = QWidget()
         self._items_layout = QVBoxLayout(self._items_widget)
-        self._items_layout.setContentsMargins(8, 4, 0, 4)
-        self._items_layout.setSpacing(2)
-        self._content_layout.addWidget(self._items_widget)
+        self._items_layout.setContentsMargins(0, 0, 0, 0)
+        self._items_layout.setSpacing(4)
+        layout.addWidget(self._items_widget)
+
+        self._item_labels: list[QLabel] = []
 
         # Empty state
-        self._empty_label = QLabel(f"<i style='color:{COLORS['text_muted']};'>No items</i>")
+        self._empty_label = QLabel("No items")
+        self._empty_label.setObjectName("caption")
         self._empty_label.setVisible(True)
         self._items_layout.addWidget(self._empty_label)
 
@@ -68,21 +54,35 @@ class SummaryCard(QFrame):
             if child.widget():
                 child.widget().deleteLater()
 
+        self._item_labels: list[QLabel] = []
+
         if not items:
-            self._empty_label = QLabel(f"<i style='color:{COLORS['text_muted']};'>No items</i>")
+            self._empty_label = QLabel("No items")
+            self._empty_label.setObjectName("caption")
             self._items_layout.addWidget(self._empty_label)
             return
 
         for item_text in items:
-            bullet = QLabel(
-                f"<table cellpadding='0' cellspacing='0'><tr>"
-                f"<td style='vertical-align:top;padding-right:6px;'>\u2022</td>"
-                f"<td>{item_text}</td>"
-                f"</tr></table>"
-            )
-            bullet.setTextFormat(Qt.TextFormat.RichText)
+            bullet = QLabel(f"•  {item_text}")
             bullet.setWordWrap(True)
+            self._item_labels.append(bullet)
             self._items_layout.addWidget(bullet)
+
+    def filter_text(self, query: str) -> int:
+        """Show/hide bullet items matching query. Returns count of visible items."""
+        if not query:
+            for label in self._item_labels:
+                label.setVisible(True)
+            return len(self._item_labels)
+
+        query_lower = query.lower()
+        visible = 0
+        for label in self._item_labels:
+            matches = query_lower in label.text().lower()
+            label.setVisible(matches)
+            if matches:
+                visible += 1
+        return visible
 
     def clear(self):
         """Clear all items."""

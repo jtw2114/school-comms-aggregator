@@ -17,6 +17,7 @@ from src.models.communication import CommunicationItem
 from src.ui.detail_panel import DetailPanel
 from src.ui.filter_toolbar import FilterToolbar
 from src.ui.widgets.communication_card import CommunicationCard
+from src.ui.widgets.find_bar import FindBar
 
 
 class CommunicationsView(QWidget):
@@ -63,6 +64,10 @@ class CommunicationsView(QWidget):
 
         splitter.setSizes([350, 650])
         layout.addWidget(splitter, 1)
+
+        # Find bar (Ctrl+F) — uses list scroll area for match navigation
+        self._find_bar = FindBar(self._list_scroll)
+        layout.insertWidget(0, self._find_bar)  # Insert at top
 
         self._cards: list[CommunicationCard] = []
         self._selected_id: int | None = None
