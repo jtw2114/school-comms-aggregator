@@ -1,9 +1,9 @@
 """Database models for communications, attachments, sync state, and daily summaries."""
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, Boolean
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
@@ -125,4 +125,5 @@ class ChecklistItem(Base):
     is_checked: Mapped[bool] = mapped_column(Boolean, default=False)
     checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     source_date: Mapped[str | None] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD
+    event_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

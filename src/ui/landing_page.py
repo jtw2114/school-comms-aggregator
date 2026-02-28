@@ -13,9 +13,9 @@ from src.ui.theme import get_landing_button_style
 
 
 class LandingPage(QWidget):
-    """Landing page with 3 large navigation buttons."""
+    """Landing page with navigation buttons to main app sections."""
 
-    navigate_to_tab = Signal(int)  # Emits tab index (0=Dashboard, 1=Comms, 2=Archive)
+    navigate_to_tab = Signal(int)  # Emits tab index (0=Dashboard, 1=Calendar, 2=Comms, 3=Archive)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -57,12 +57,21 @@ class LandingPage(QWidget):
         )
         btn_container.addWidget(self._btn_dashboard)
 
+        # Calendar button
+        self._btn_calendar = self._create_nav_button(
+            icon="\U0001F4C6",  # 📆
+            title="Calendar",
+            description="View key dates\non a monthly calendar",
+            tab_index=1,
+        )
+        btn_container.addWidget(self._btn_calendar)
+
         # Communications button
         self._btn_comms = self._create_nav_button(
             icon="\U0001F4E7",  # 📧
             title="Communications",
             description="Browse all messages\nfrom Gmail & Brightwheel",
-            tab_index=1,
+            tab_index=2,
         )
         btn_container.addWidget(self._btn_comms)
 
@@ -71,7 +80,7 @@ class LandingPage(QWidget):
             icon="\U0001F4E6",  # 📦
             title="Archive",
             description="View completed\naction items & dates",
-            tab_index=2,
+            tab_index=3,
         )
         btn_container.addWidget(self._btn_archive)
 

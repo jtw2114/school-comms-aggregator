@@ -39,9 +39,12 @@ Respond with valid JSON matching this schema:
 }
 
 Rules:
-- Each array item should be a concise, actionable string (e.g., "Feb 14 - Valentine's Day party, bring cards for 14 students")
-- Include specific dates when mentioned
+- Each array item should be a concise, actionable string
 - If a category has no items, return an empty array
+- For key_dates: Always include the specific date in a parseable format at the start of each item.
+  Format: "YYYY-MM-DD: Event description"
+  Example: "2026-02-14: Valentine's Day Party - bring nut-free snack for 20 kids"
+  If the exact date is unclear, use your best estimate and prefix with "~" (e.g., "~2026-02-20: Approximate date for science fair")
 - For action_items, start with the action verb (e.g., "Sign permission slip for...", "Send $15 for...")
 - For curriculum_updates, pay special attention to attached PDF newsletters (weekly emails). Extract ALL learning topics, themes, skills, and classroom activities mentioned. Include the room/class name. Examples:
   - "Lovable Lambs - Explored shapes and colors through collage art and gluing activities"

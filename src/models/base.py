@@ -46,6 +46,8 @@ def init_db():
     Base.metadata.create_all(get_engine())
     _migrate_attachment_extracted_text()
     _migrate_fix_pdf_mimetypes()
+    _migrate_checklist_event_date()
+    _backfill_event_dates()
 
 
 def _migrate_attachment_extracted_text():
@@ -101,6 +103,29 @@ def _migrate_fix_pdf_mimetypes():
         logger.warning("Failed to fix PDF mime types", exc_info=True)
     finally:
         session.close()
+
+
+def _migrate_checklist_event_date():
+    """Add event_date column to checklist_items table if missing."""
+    engine = get_engine()
+    inspector = inspect(engine)
+    columns = [col["name"] for col in inspector.get_columns("checklist_items")]
+    if "event_date" not in columns:
+        logger.info("Migrating: adding event_date column to checklist_items table")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE checklist_items ADD COLUMN event_date DATE"))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_checklist_event_date ON checklist_items(event_date)"
+            ))
+
+
+def _backfill_event_dates():
+    """Backfill event_date for checklist items on startup."""
+    try:
+        from src.services.date_extractor import backfill_event_dates
+        backfill_event_dates()
+    except Exception:
+        logger.warning("Failed to backfill event dates", exc_info=True)
 
 
 def get_session():

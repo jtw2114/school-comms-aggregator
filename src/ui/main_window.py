@@ -20,6 +20,7 @@ from src.ui.landing_page import LandingPage
 from src.ui.dashboard_view import DashboardView
 from src.ui.communications_view import CommunicationsView
 from src.ui.archive_view import ArchiveView
+from src.ui.calendar_view import CalendarView
 from src.ui.settings_dialog import SettingsDialog
 from src.ui.gmail_auth_dialog import GmailAuthDialog
 from src.ui.brightwheel_auth_dialog import BrightwheelAuthDialog
@@ -123,6 +124,10 @@ class MainWindow(QMainWindow):
         self._dashboard.checklist_changed.connect(self._on_checklist_changed)
         self._tabs.addTab(self._dashboard, "Dashboard")
 
+        self._calendar = CalendarView()
+        self._calendar.checklist_changed.connect(self._on_checklist_changed)
+        self._tabs.addTab(self._calendar, "Calendar")
+
         self._comms_view = CommunicationsView()
         self._tabs.addTab(self._comms_view, "All Communications")
 
@@ -147,9 +152,10 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def _on_checklist_changed(self):
-        """Refresh both Dashboard and Archive when a checklist item changes."""
+        """Refresh Dashboard, Archive, and Calendar when a checklist item changes."""
         self._dashboard.refresh()
         self._archive.refresh()
+        self._calendar.refresh()
 
     # ---- Status bar ----
     def _build_status_bar(self):
@@ -231,6 +237,7 @@ class MainWindow(QMainWindow):
     @Slot()
     def _on_summary_finished(self):
         self._dashboard.refresh()
+        self._calendar.refresh()
         self._dashboard.set_regenerate_enabled(True)
         self._sync_status_bar.set_message("Dashboard updated")
 

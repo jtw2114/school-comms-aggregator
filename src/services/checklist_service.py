@@ -1,8 +1,9 @@
 """Persistent checklist service for action items and key dates."""
 
+import calendar
 import difflib
 import logging
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from src.models.base import get_session
 from src.models.communication import ChecklistItem
@@ -137,6 +138,7 @@ class ChecklistService:
                     existing_map[best_match_id].item_text = new_text
 
             # Add new items that didn't match anything
+            from src.services.date_extractor import extract_event_date
             for new_idx, new_text in enumerate(new_texts):
                 if new_idx not in matched_new_indices:
                     new_item = ChecklistItem(
@@ -144,6 +146,7 @@ class ChecklistService:
                         item_text=new_text,
                         is_checked=False,
                         created_at=datetime.now(),
+                        event_date=extract_event_date(new_text),
                     )
                     session.add(new_item)
 
@@ -159,6 +162,81 @@ class ChecklistService:
                 f"{len(new_texts) - len(matched_new_indices)} added, "
                 f"{sum(1 for iid in existing_map if iid not in matched_existing_ids and not existing_map[iid].is_checked)} removed"
             )
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def get_items_for_month(self, year: int, month: int) -> list[ChecklistItem]:
+        """Return all checklist items with event_date in the given month."""
+        session = get_session()
+        try:
+            first_day = date(year, month, 1)
+            last_day = date(year, month, calendar.monthrange(year, month)[1])
+            items = (
+                session.query(ChecklistItem)
+                .filter(
+                    ChecklistItem.event_date >= first_day,
+                    ChecklistItem.event_date <= last_day,
+                )
+                .order_by(ChecklistItem.event_date)
+                .all()
+            )
+            for item in items:
+                session.expunge(item)
+            return items
+        finally:
+            session.close()
+
+    def get_items_for_range(self, start_date: date, end_date: date) -> list[ChecklistItem]:
+        """Return all checklist items with event_date in the given range."""
+        session = get_session()
+        try:
+            items = (
+                session.query(ChecklistItem)
+                .filter(
+                    ChecklistItem.event_date >= start_date,
+                    ChecklistItem.event_date <= end_date,
+                )
+                .order_by(ChecklistItem.event_date)
+                .all()
+            )
+            for item in items:
+                session.expunge(item)
+            return items
+        finally:
+            session.close()
+
+    def get_undated_items(self, category: str) -> list[ChecklistItem]:
+        """Return items with no event_date for a category."""
+        session = get_session()
+        try:
+            items = (
+                session.query(ChecklistItem)
+                .filter(
+                    ChecklistItem.category == category,
+                    ChecklistItem.event_date.is_(None),
+                    ChecklistItem.is_checked == False,
+                )
+                .order_by(ChecklistItem.created_at)
+                .all()
+            )
+            for item in items:
+                session.expunge(item)
+            return items
+        finally:
+            session.close()
+
+    def set_event_date(self, item_id: int, event_date: date | None):
+        """Manually set or clear the event_date for a checklist item."""
+        session = get_session()
+        try:
+            item = session.query(ChecklistItem).get(item_id)
+            if not item:
+                return
+            item.event_date = event_date
+            session.commit()
         except Exception:
             session.rollback()
             raise
